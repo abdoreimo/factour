@@ -1,5 +1,5 @@
 {
-  "name": "نظام-إدارة-الفواتير-الجزائري-الأنيق",
+  "name": "نظام-الفواتير-الجزائري-الاحترافي-a4",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,7 +11,7 @@
   "dependencies": {
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "lucide-react": "^0.563.0"
+    "lucide-react": "^0.263.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
