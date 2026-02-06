@@ -5,10 +5,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>نظام الفواتير الجزائري الاحترافي</title>
+    
+    <!-- Scripts for Browser Compatibility -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Cairo:wght@200..1000&family=Reem+Kufi:wght@400..700&display=swap" rel="stylesheet">
+    
     <style>
         body {
             font-family: 'Cairo', sans-serif;
@@ -20,11 +26,6 @@
         .font-amiri { font-family: 'Amiri', serif; }
         .font-reem { font-family: 'Reem Kufi', sans-serif; }
         
-        /* تحسين شكل السكرول بار */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #db2777; border-radius: 4px; }
-
         @media print {
             @page {
                 size: A4;
@@ -32,32 +33,33 @@
             }
             body {
                 background-color: white !important;
-                padding: 0 !important;
-                margin: 0 !important;
             }
             .no-print {
                 display: none !important;
             }
             .print-container {
-                display: block !important;
                 width: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                box-shadow: none !important;
-                border: none !important;
+                display: block !important;
             }
             .invoice-page {
                 height: 297mm;
                 width: 210mm;
-                padding: 10mm !important;
-                margin: 0 auto;
+                padding: 15mm !important;
+                margin: 0 auto !important;
                 page-break-after: always;
-                box-shadow: none !important;
                 border: none !important;
-                display: flex;
-                flex-direction: column;
+                box-shadow: none !important;
+                display: flex !important;
+                flex-direction: column !important;
             }
         }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #db2777; border-radius: 4px; }
     </style>
 <script type="importmap">
 {
@@ -72,6 +74,284 @@
 </head>
 <body>
     <div id="root"></div>
-    <script type="module" src="index.tsx"></script>
+
+    <!-- React and Lucide Icons via ESM -->
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
+        import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
+        import { 
+            Plus, Trash2, Printer, FileText, RotateCcw, 
+            Users, Archive, Save, Building2, Truck 
+        } from 'https://esm.sh/lucide-react@0.263.1';
+
+        // --- Utilities ---
+        const convertAmountToWords = (amount) => {
+            return `هذه الفاتورة محددة بمبلغ إجمالي قدره: ${amount.toLocaleString('ar-DZ')} دينار جزائري فقط لا غير.`;
+        };
+
+        // --- Component: Invoice Preview ---
+        const InvoicePreview = ({ data }) => {
+            const subtotal = data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const tvaAmount = subtotal * (data.tvaRate / 100);
+            const timbre = data.paymentMethod === 'CASH' ? Math.min(Math.max((subtotal + tvaAmount) * 0.01, 5), 10000) : 0;
+            const total = subtotal + tvaAmount + timbre;
+
+            const formatDate = (dateStr) => {
+                try { return new Date(dateStr).toLocaleDateString('ar-DZ', { year: 'numeric', month: 'long', day: 'numeric' }); }
+                catch { return dateStr; }
+            };
+
+            return (
+                <div className="invoice-page bg-white p-10 min-h-[1120px] relative flex flex-col font-cairo text-gray-800 border-[10px] border-pink-50/50">
+                    <div className="mb-6 border-b pb-6 text-center">
+                        <h1 className="text-4xl font-reem text-gray-900 mb-2 leading-relaxed">{data.company.name}</h1>
+                        <p className="text-[13px] text-gray-600 font-amiri italic mb-4">{data.company.address} | هاتف: {data.company.phone}</p>
+                        <div className="flex justify-between items-end text-right">
+                            <div dir="ltr" className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-[10px] text-gray-500 font-mono border-r-4 border-pink-600 pr-4 text-left">
+                                <div><strong>RC:</strong> {data.company.rc}</div>
+                                <div><strong>NIF:</strong> {data.company.nif}</div>
+                                <div><strong>NIS:</strong> {data.company.nis}</div>
+                                <div><strong>AI:</strong> {data.company.ai}</div>
+                            </div>
+                            <div className="text-left">
+                                <div className="bg-gray-900 text-white px-8 py-3 rounded-bl-3xl shadow-lg transform -translate-x-4">
+                                    <h2 className="text-2xl font-bold font-reem text-center">فـاتـورة</h2>
+                                    <p className="text-[11px] opacity-70 mt-1 font-mono tracking-widest text-center">N°: {data.invoiceNumber}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-8 mb-6 bg-gray-50 p-6 rounded-3xl border border-gray-100">
+                        <div className="space-y-1 border-r-2 border-pink-100 pr-4">
+                            <h4 className="text-[10px] font-bold text-pink-500 uppercase mb-1">بيانات الزبون:</h4>
+                            <h3 className="text-xl font-bold font-amiri text-gray-900">{data.client.name}</h3>
+                            <p className="text-[13px] text-gray-600 font-amiri">{data.client.address}</p>
+                        </div>
+                        <div className="text-left flex flex-col items-end justify-center space-y-2">
+                            <div className="text-[12px] flex gap-2">
+                                <span className="text-gray-400 font-bold">التاريخ:</span>
+                                <span className="font-bold text-gray-800">{formatDate(data.date)}</span>
+                            </div>
+                            <div className="mt-2">
+                                <span className="bg-pink-600 text-white px-4 py-1 rounded-full text-[11px] font-bold">
+                                    {data.paymentMethod === 'TRANSFER' ? 'تحويل بنكي' : data.paymentMethod === 'CHECK' ? 'صك بريدي' : 'نقداً'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-grow">
+                        <table className="w-full text-right table-fixed border-collapse">
+                            <thead>
+                                <tr className="bg-gray-900 text-white">
+                                    <th className="p-3 text-[11px] font-reem w-12 text-center border-l border-gray-700">#</th>
+                                    <th className="p-3 text-[11px] font-reem text-right border-l border-gray-700">الوصف والبيان</th>
+                                    <th className="p-3 text-[11px] font-reem w-20 text-center border-l border-gray-700">الكمية</th>
+                                    <th className="p-3 text-[11px] font-reem w-32 text-center border-l border-gray-700">سعر الوحدة</th>
+                                    <th className="p-3 text-[11px] font-reem w-32 text-left">المبلغ</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 border-x border-b border-gray-100">
+                                {data.items.map((item, idx) => (
+                                    <tr key={item.id}>
+                                        <td className="px-1 py-2 text-center text-[12px] text-gray-400 font-mono border-l border-gray-50">{idx + 1}</td>
+                                        <td className="px-4 py-2 font-amiri text-[16px] text-gray-800 border-l border-gray-50">{item.description}</td>
+                                        <td className="px-1 py-2 text-center text-[14px] font-bold text-gray-600 border-l border-gray-50">{item.quantity}</td>
+                                        <td className="px-1 py-2 text-center text-[14px] text-gray-600 border-l border-gray-50">{item.price.toLocaleString('ar-DZ')}</td>
+                                        <td className="px-4 py-2 text-left text-[15px] font-bold text-gray-900">{(item.price * item.quantity).toLocaleString('ar-DZ')}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="mt-6 flex justify-between items-start gap-8">
+                        <div className="w-3/5">
+                            <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100 mb-4">
+                                <h4 className="text-[10px] font-bold text-pink-600 mb-1">المبلغ الإجمالي بالحروف:</h4>
+                                <p className="text-[14px] font-amiri font-bold text-gray-800 italic">{convertAmountToWords(total)}</p>
+                            </div>
+                        </div>
+                        <div className="w-1/3 bg-gray-50 rounded-2xl p-4 space-y-2 border border-gray-100">
+                            <div className="flex justify-between items-center text-[11px]"><span className="text-gray-500">المجموع (HT):</span><span className="font-bold">{subtotal.toLocaleString('ar-DZ')} دج</span></div>
+                            <div className="flex justify-between items-center text-[11px]"><span className="text-gray-500">TVA ({data.tvaRate}%):</span><span className="font-bold">{tvaAmount.toLocaleString('ar-DZ')} دج</span></div>
+                            {timbre > 0 && <div className="flex justify-between items-center text-[11px] text-pink-600 border-t border-dashed pt-2"><span className="font-bold">حق الطابع:</span><span className="font-bold">{timbre.toLocaleString('ar-DZ')} دج</span></div>}
+                            <div className="h-px bg-gray-300 my-1"></div>
+                            <div className="flex justify-between items-center"><span className="text-lg font-reem font-bold">الصافي للدفع:</span><span className="text-xl font-bold text-pink-600">{total.toLocaleString('ar-DZ')} دج</span></div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Component: Delivery Note Preview ---
+        const DeliveryNotePreview = ({ data }) => {
+            return (
+                <div className="invoice-page bg-white p-10 min-h-[1120px] relative flex flex-col font-cairo text-gray-800 border-[10px] border-blue-50/50">
+                    <div className="mb-6 border-b pb-6 text-center">
+                        <h1 className="text-4xl font-reem text-gray-900 mb-2 leading-relaxed">{data.company.name}</h1>
+                        <p className="text-[13px] text-gray-600 font-amiri italic mb-4">{data.company.address}</p>
+                        <div className="flex justify-between items-end">
+                            <div dir="ltr" className="text-[10px] text-gray-400 font-mono text-left">RC: {data.company.rc} | NIF: {data.company.nif}</div>
+                            <div className="bg-blue-900 text-white px-8 py-3 rounded-bl-3xl shadow-lg">
+                                <h2 className="text-2xl font-bold font-reem text-center">سند تسليم</h2>
+                                <p className="text-[11px] opacity-70 mt-1 font-mono tracking-widest text-center">N°: {data.invoiceNumber}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-8 mb-6 bg-blue-50/30 p-6 rounded-3xl border border-blue-100">
+                        <div className="space-y-1 border-r-2 border-blue-200 pr-4">
+                            <h4 className="text-[10px] font-bold text-blue-500 uppercase mb-1">المرسل إليه:</h4>
+                            <h3 className="text-xl font-bold font-amiri text-gray-900">{data.client.name}</h3>
+                            <p className="text-[13px] text-gray-600 font-amiri">{data.client.address}</p>
+                        </div>
+                    </div>
+                    <div className="flex-grow">
+                        <table className="w-full text-right table-fixed border-collapse">
+                            <thead>
+                                <tr className="bg-blue-900 text-white">
+                                    <th className="p-3 text-[11px] font-reem w-14 text-center">#</th>
+                                    <th className="p-3 text-[11px] font-reem text-right">السلعة / الخدمة</th>
+                                    <th className="p-3 text-[11px] font-reem w-32 text-center">الكمية</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 border-x border-b">
+                                {data.items.map((item, idx) => (
+                                    <tr key={item.id}><td className="p-3 text-center">{idx + 1}</td><td className="p-3 font-amiri text-lg">{item.description}</td><td className="p-3 text-center font-bold">{item.quantity}</td></tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Main App ---
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('editor');
+            const [company, setCompany] = useState(() => JSON.parse(localStorage.getItem('dz_comp_final') || '{"name":"مؤسسة الابتكار الرقمي","address":"حي 1200 مسكن، الجزائر","phone":"023456789","rc":"16/00-123B","nif":"000123456","nis":"192000123","ai":"1600123"}'));
+            const [clients, setClients] = useState(() => JSON.parse(localStorage.getItem('dz_clients_final') || '[]'));
+            const [archive, setArchive] = useState(() => JSON.parse(localStorage.getItem('dz_archive_final') || '[]'));
+            
+            const createNew = (c) => ({
+                id: Math.random().toString(36).substr(2, 9),
+                invoiceNumber: `${new Date().getFullYear()}/${Math.floor(Math.random()*900)+100}`,
+                date: new Date().toISOString().split('T')[0],
+                dueDate: new Date(Date.now()+2592000000).toISOString().split('T')[0],
+                company: c,
+                client: { name: "", address: "", phone: "" },
+                items: [{ id: '1', description: '', price: 0, quantity: 1 }],
+                tvaRate: 19,
+                paymentMethod: 'TRANSFER',
+                notes: "تعتبر هذه الفاتورة بمثابة عقد بيع."
+            });
+
+            const [data, setData] = useState(() => createNew(company));
+
+            useEffect(() => { localStorage.setItem('dz_comp_final', JSON.stringify(company)); setData(prev => ({...prev, company})); }, [company]);
+            useEffect(() => localStorage.setItem('dz_clients_final', JSON.stringify(clients)), [clients]);
+            useEffect(() => localStorage.setItem('dz_archive_final', JSON.stringify(archive)), [archive]);
+
+            const handleSave = () => {
+                const sub = data.items.reduce((s,i)=>s+(i.price*i.quantity),0);
+                const tva = sub * (data.tvaRate/100);
+                const tim = data.paymentMethod==='CASH'?Math.min(Math.max((sub+tva)*0.01,5),10000):0;
+                setArchive([{...data, total: sub+tva+tim}, ...archive]);
+                alert("تم الحفظ في الأرشيف");
+            };
+
+            const Input = ({ label, value, onChange, type="text", className="" }) => (
+                <div className={className}>
+                    <label className="text-[10px] font-bold text-gray-500 block mb-1 uppercase">{label}</label>
+                    <input type={type} className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold focus:ring-4 focus:ring-pink-50 outline-none" value={value} onChange={e => onChange(e.target.value)} />
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen">
+                    <header className="no-print bg-white border-b shadow-sm sticky top-0 z-50 px-6 py-2 flex flex-col lg:flex-row justify-between items-center gap-4">
+                        <div className="flex items-center gap-3"><div className="bg-pink-600 p-2 rounded-lg text-white"><FileText size={20}/></div><h1 className="text-lg font-bold font-reem">نظام الفواتير الجزائري</h1></div>
+                        <nav className="flex bg-gray-100 p-1 rounded-xl">
+                            {['settings', 'clients', 'editor', 'archive'].map(tab => (
+                                <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === tab ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500'}`}>
+                                    {tab === 'settings' ? 'المؤسسة' : tab === 'clients' ? 'العملاء' : tab === 'editor' ? 'الفاتورة' : 'الأرشيف'}
+                                </button>
+                            ))}
+                        </nav>
+                        <div className="flex gap-2">
+                            {activeTab === 'editor' && (
+                                <><button onClick={handleSave} className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2"><Save size={18}/> حفظ</button>
+                                <button onClick={() => window.print()} className="bg-pink-600 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2"><Printer size={18}/> طباعة</button></>
+                            )}
+                        </div>
+                    </header>
+
+                    <main className="max-w-[1440px] mx-auto mt-8 px-6 pb-12">
+                        {activeTab === 'editor' && (
+                            <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 items-start">
+                                <div className="no-print xl:col-span-2 space-y-6">
+                                    <div className="bg-white p-6 rounded-2xl border shadow-sm">
+                                        <h2 className="text-lg font-bold mb-4">بيانات الفاتورة</h2>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <Input label="رقم الفاتورة" value={data.invoiceNumber} onChange={v=>setData({...data, invoiceNumber:v})} />
+                                            <Input label="التاريخ" type="date" value={data.date} onChange={v=>setData({...data, date:v})} />
+                                            <Input label="اسم الزبون" value={data.client.name} onChange={v=>setData(d=>({...d, client:{...d.client, name:v}}))} className="col-span-2" />
+                                            <Input label="العنوان" value={data.client.address} onChange={v=>setData(d=>({...d, client:{...d.client, address:v}}))} className="col-span-2" />
+                                        </div>
+                                    </div>
+                                    <div className="bg-white p-6 rounded-2xl border shadow-sm">
+                                        <div className="flex justify-between items-center mb-4"><h2 className="text-lg font-bold">السلع</h2><button onClick={()=>setData(p=>({...p, items:[...p.items,{id:Date.now().toString(),description:'',price:0,quantity:1}]}))} className="text-pink-600 font-bold text-xs">+ إضافة سطر</button></div>
+                                        {data.items.map(item => (
+                                            <div key={item.id} className="grid grid-cols-12 gap-2 mb-2">
+                                                <input className="col-span-6 p-2 border rounded-lg text-xs" placeholder="الوصف" value={item.description} onChange={e=>setData(d=>({...d, items:d.items.map(it=>it.id===item.id?{...it,description:e.target.value}:it)}))} />
+                                                <input type="number" className="col-span-2 p-2 border rounded-lg text-xs text-center" value={item.quantity} onChange={e=>setData(d=>({...d, items:d.items.map(it=>it.id===item.id?{...it,quantity:parseFloat(e.target.value)||0}:it)}))} />
+                                                <input type="number" className="col-span-3 p-2 border rounded-lg text-xs" value={item.price} onChange={e=>setData(d=>({...d, items:d.items.map(it=>it.id===item.id?{...it,price:parseFloat(e.target.value)||0}:it)}))} />
+                                                <button onClick={()=>setData(d=>({...d, items:d.items.filter(it=>it.id!==item.id)}))} className="col-span-1 text-red-300">×</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="xl:col-span-3 sticky top-24 print-container">
+                                    <div className="bg-gray-50 p-4 lg:p-8 rounded-[40px] shadow-inner border flex flex-col gap-10">
+                                        <InvoicePreview data={data} />
+                                        <DeliveryNotePreview data={data} />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        {activeTab === 'settings' && (
+                            <div className="max-w-2xl mx-auto bg-white p-10 rounded-3xl border">
+                                <h2 className="text-2xl font-bold mb-6">إعدادات المؤسسة</h2>
+                                <div className="grid grid-cols-1 gap-4">
+                                    <Input label="اسم المؤسسة" value={company.name} onChange={v=>setCompany({...company, name:v})} />
+                                    <Input label="العنوان" value={company.address} onChange={v=>setCompany({...company, address:v})} />
+                                    <Input label="رقم الهاتف" value={company.phone} onChange={v=>setCompany({...company, phone:v})} />
+                                    <Input label="RC" value={company.rc} onChange={v=>setCompany({...company, rc:v})} />
+                                    <Input label="NIF" value={company.nif} onChange={v=>setCompany({...company, nif:v})} />
+                                </div>
+                            </div>
+                        )}
+                        {activeTab === 'archive' && (
+                            <div className="bg-white p-8 rounded-3xl border">
+                                <h2 className="text-2xl font-bold mb-6">الأرشيف</h2>
+                                <table className="w-full text-right border-collapse">
+                                    <thead><tr className="bg-gray-100"><th className="p-4">رقم الفاتورة</th><th className="p-4">الزبون</th><th className="p-4">التاريخ</th><th className="p-4">الإجمالي</th></tr></thead>
+                                    <tbody>
+                                        {archive.map(inv => (
+                                            <tr key={inv.id} className="border-b hover:bg-gray-50"><td className="p-4 font-bold">{inv.invoiceNumber}</td><td className="p-4">{inv.client.name}</td><td className="p-4">{inv.date}</td><td className="p-4">{inv.total?.toLocaleString()} دج</td></tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
